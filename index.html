@@ -9,7 +9,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        body { font-family: "Microsoft JhengHei", sans-serif; background-color: #f8f9fa; padding-bottom: 120px; }
+        body { font-family: "Microsoft JhengHei", sans-serif; background-color: #f8f9fa; padding-bottom: 140px; } /* 底部留空加高 */
         .sticky-header-container { position: sticky; top: 0; z-index: 1020; background-color: #212529; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
         .top-info { padding: 12px 15px 5px 15px; color: white; }
         .client-name { font-size: 1.3rem; font-weight: 800; color: #ffc107; }
@@ -35,12 +35,24 @@
         .qty-input { width: 50px; text-align: center; border: none; font-weight: bold; font-size: 1.1rem; color: #333; background: transparent; padding: 0; }
         .qty-input.unit-kg { color: #d63384; font-size: 1rem; }
         .product-row.selected { background-color: #fff9db; border-left: 5px solid #ffc107; }
-        .bottom-bar { position: fixed; bottom: 0; left: 0; width: 100%; background: white; box-shadow: 0 -4px 15px rgba(0,0,0,0.15); padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; z-index: 1030; gap: 10px; }
+        
+        /* V8.0 底部欄位大升級 */
+        .bottom-bar { position: fixed; bottom: 0; left: 0; width: 100%; background: white; box-shadow: 0 -4px 15px rgba(0,0,0,0.15); padding: 10px 15px; z-index: 1030; display: flex; flex-direction: column; gap: 8px; }
+        .bottom-info-row { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 2px; }
+        .bottom-btn-row { display: flex; gap: 8px; width: 100%; }
+        
         .total-box { font-size: 1.1rem; font-weight: bold; color: #333; }
         .total-num { color: #d32f2f; font-size: 1.4rem; padding: 0 3px; }
-        .btn-view-cart { background-color: #6c757d; color: white; border: none; padding: 10px 18px; border-radius: 50px; font-weight: bold; font-size: 0.95rem; white-space: nowrap; transition: all 0.3s ease; }
-        .btn-view-cart.active { background: linear-gradient(45deg, #ff9800, #ff5722); box-shadow: 0 4px 12px rgba(255, 87, 34, 0.4); transform: scale(1.05); }
-        .btn-whatsapp { background-color: #25D366; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; font-size: 1.1rem; flex-grow: 1; display: flex; align-items: center; justify-content: center; gap: 5px; box-shadow: 0 4px 10px rgba(37, 211, 102, 0.3); }
+        
+        .btn-view-cart { background-color: #6c757d; color: white; border: none; padding: 6px 15px; border-radius: 50px; font-weight: bold; font-size: 0.9rem; transition: all 0.3s ease; }
+        .btn-view-cart.active { background: linear-gradient(45deg, #ff9800, #ff5722); box-shadow: 0 2px 8px rgba(255, 87, 34, 0.4); }
+        
+        /* 雙按鈕樣式 */
+        .btn-send { border: none; padding: 12px 5px; border-radius: 10px; font-weight: bold; font-size: 1rem; flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; color: white; transition: transform 0.1s; }
+        .btn-send:active { transform: scale(0.98); }
+        .btn-sales { background-color: #25D366; box-shadow: 0 4px 10px rgba(37, 211, 102, 0.3); } /* WhatsApp 綠 */
+        .btn-group { background-color: #0d6efd; box-shadow: 0 4px 10px rgba(13, 110, 253, 0.3); } /* 藍色區分 */
+
         .tab-content { display: none; padding-top: 10px; }
         .tab-content.active { display: block; }
         .modal-header { background-color: #212529; color: white; }
@@ -74,11 +86,22 @@
 </div>
 <div id="tab-frequent" class="tab-content active"></div>
 <div id="tab-all" class="tab-content"></div>
+
 <div class="bottom-bar">
-    <div class="total-box">共 <span id="totalQty" class="total-num">0</span> 款</div>
-    <button id="viewCartBtn" class="btn-view-cart" onclick="openCartModal()" disabled><i class="bi bi-cart3"></i> 查看已選</button>
-    <button class="btn-whatsapp" onclick="sendWhatsApp()"><i class="bi bi-whatsapp"></i> 發送訂單</button>
+    <div class="bottom-info-row">
+        <div class="total-box">共 <span id="totalQty" class="total-num">0</span> 款</div>
+        <button id="viewCartBtn" class="btn-view-cart" onclick="openCartModal()" disabled><i class="bi bi-cart3"></i> 查看已選</button>
+    </div>
+    <div class="bottom-btn-row">
+        <button class="btn-send btn-sales" onclick="sendWhatsApp('direct')">
+            <i class="bi bi-whatsapp"></i> 發送給銷售
+        </button>
+        <button class="btn-send btn-group" onclick="sendWhatsApp('group')">
+            <i class="bi bi-people-fill"></i> 發送到群組
+        </button>
+    </div>
 </div>
+
 <div class="modal fade" id="unitSelectionModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -101,28 +124,26 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-danger me-auto" onclick="clearCart()"><i class="bi bi-trash"></i> 清空</button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">繼續選購</button>
-                <button type="button" class="btn btn-success" onclick="sendWhatsApp()">確認發送</button>
+                <button type="button" class="btn btn-success" onclick="sendWhatsApp('direct')">發給銷售</button>
             </div>
         </div>
     </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // V7.5 標準最終版 - 九丁目 (去重淨化版)
+    // V8.0 雙軌發送版 - 九丁目
     const customerName = "九丁目"; const customerCode = "A2262A";
-    const storageKey = "kyuuchoume_v7";
+    const salesPhone = "85263771688"; // 銷售電話 (Direct Mode)
+    const storageKey = "kyuuchoume_v8";
     
-    // 1. 鐵底清單
     const frequentCodes = ["C01", "D21", "D46AA", "C27A", "D10KC", "B01", "C28B", "D47", "D17D", "D03A", "D59EA", "D10", "C04", "D09HA", "D04B"];
-    
-    // 2. 缺貨清單
     const outOfStockCodes = ["C58AC","D58C","D10F","D10D","D09M","D09G"];
-
-    // 3. 記憶清單
     let learnedFrequent = [];
 
     const eelProducts = ["D22J", "D22L", "D22", "D22C", "D22A", "D22D", "D22I", "D22G"];
     const weightedProducts = ["D61B", "D61C", "D18A", "D17E", "D17C", "B01", "D18"];
+    
+    // E06 已更名為 日式原條叉燒
     const fullCatalog = [
         { cat: "環球海膽", items: ["膠盒海膽 (A06F)", "加拿大海膽 (A03)", "澳洲海膽 (A08)", "練海膽醬 (C59)", "凍海膽漿 (D01)", "紫海膽(膠盒) (A07C)", "墨西哥海膽 (A12A)", "墨西哥海膽10格 (A12B)", "本地海膽 (A02)", "凍熟馬糞膽 (A06E)"] },
         { cat: "日本海膽", items: ["A Grade(直排) (AJ1)", "A Grade(亂排) (AJ4)", "B Grade(亂排) (AJ3)", "鹽水海膽 (AJ6)"] },
@@ -131,7 +152,7 @@
         { cat: "新鮮蔬菜/裝飾花葉", items: ["大葉 (C01)", "綠楓葉 (C01FA)", "紅楓葉 (C01FB)", "日本小菊（黃） (C01CA)", "青椒仔 (C01CJ)", "萬能蔥 (C01CH)", "迷你食用玫瑰 (C01CO)", "南瓜 (C05)", "竹葉 (C04)", "三支葉 (C01F)", "花穗紫蘇 (C01CB)", "水菜 (C01CK)", "立桂 (C01CG)", "紅椒絲 (C01D)", "日本番薯 (C05A)"] },
         { cat: "刺身壽司用料（蝦類）", items: ["牡丹蝦L(黑盒) (D03A)", "牡丹蝦XL(黑盒) (D03)", "牡丹蝦J(黑盒) (D03B)", "ATC牡丹蝦XJ (D04D)", "阿根廷赤蝦 L1 (D10JA)", "阿根廷赤蝦 L2 (D10JAA)", "原隻有頭甜蝦 LA (D10F)", "原隻有頭甜蝦 2L (D10)", "原隻有頭甜蝦 3L (D10A)", "原隻有頭甜蝦 4L (D10D)", "天使蝦 (D10M)", "海赤蝦8L (D10JE)", "海赤蝦9L (D10JD)", "無頭甜蝦M50 (D10K)", "無頭甜蝦L50 (D10KC)", "壽司熟蝦 3L (D03DD)", "壽司熟蝦 4L (D03DC)", "虎蝦刺身8g (D10N)", "虎蝦刺身10g (D10NA)", "海膽蝦2L (D03G)", "壽司玻璃蝦3L (D03CA)", "壽司熟蝦 7L (D03DA)", "壽司熟蝦 8L (D03D)", "天婦羅蝦5L (D10ED)", "25g吉列蝦（黃糠） (D10EAA)"] },
         { cat: "刺身壽司用料（帶子及貝殼類）", items: ["日本刺身帶子 5S (D09GA)", "日本刺身帶子 4S (D09D)", "日本刺身帶子 3S (D09B)", "日本刺身帶子 2S (D09F)", "日本刺身帶子 S (D09A)", "日本刺身帶子 M (D09)", "日本刺身帶子 L (D09C)", "日本刺身帶子 2L (D09M)", "日本刺身帶子 3L (D09G)", "刺身帶子S 500g (D09AB)", "調味扇貝切片8g (D09LA)", "北寄貝L (D47A)", "北寄貝M (D47)", "北寄貝片 (D47B)", "馬刀貝6g (D07)", "馬刀貝10g (D07A)", "赤貝肉21/25 (D48A)", "赤貝肉16/20 (D48B)", "赤貝片7g (D48E)", "赤貝片8g (D48G)", "刺身海螺片(馬刀貝25g) (D07F)", "刺身赤螺片 (D07BA)", "榮螺片 (D07B)", "象拔蚌片 (D44B)", "冰山蚌片刺身 (D44D)"] },
-        { cat: "刺身壽司用料（魚類）", items: ["急凍油甘魚柳（半邊） (D69)", "螢光魷魚沖漬 (D41AB)", "油甘魚鮫 (D69B)", "凍熟螢光魷魚 (D41F)", "日本紋甲魷魚500g (D39B)", "1K紋甲魷魚 (D39BA)", "壽司墨魚片(8g) (D39)", "刺身池魚片 (D62)", "八爪魚切粒 (D05F)", "中國大八爪 (D05C)", "日本大八爪AAA (D05)", "八爪魚片 (D05B)", "A級八爪魚片 (D05BA)", "左口魚邊刺身1K (D58A)", "左口魚邊刺身20片 (D58)", "特級左口魚邊刺身 (D58C)", "左口魚邊刺身（中國） (D58B)", "臺灣鯛魚柳 (D61C)", "醋青魚柳 (D42)", "安康魚肝 (D31A)", "中國鯛魚柳 (D61B)", "冰頭漬 (D83)", "針魚片 (D25)", "大劍魚腩(有皮) (D18)", "細劍魚腩(有皮) (D18A)"] }, 
+        { cat: "刺身壽司用料（魚類）", items: ["急凍油甘魚柳（半邊） (D69)", "螢光魷魚沖漬 (D41AB)", "油甘魚鮫 (D69B)", "凍熟螢光魷魚 (D41F)", "日本紋甲魷魚500g (D39B)", "1K紋甲魷魚 (D39BA)", "壽司墨魚片(8g) (D39)", "刺身池魚片 (D62)", "八爪魚切粒 (D05F)", "中國大八爪 (D05C)", "日本大八爪AAA (D05)", "八爪魚片 (D05B)", "A級八爪魚片 (D05BA)", "左口魚邊刺身1K (D58A)", "左口魚邊刺身20片 (D58)", "特級左口魚邊刺身 (D58C)", "左口魚邊刺身（中國） (D58B)", "臺灣鯛魚柳 (D61C)", "醋青魚柳 (D42)", "安康魚肝 (D31A)", "中國鯛魚柳 (D61B)", "冰頭漬 (D83)", "針魚片 (D25)", "大劍魚腩(有皮) (D18)", "細劍魚腩(有皮) (D18A)", "日本紋甲500g (D39B)", "日本紋甲1kg (D39BA)"] }, 
         { cat: "刺身壽司用料（吞拿魚/TORO）", items: ["日本大TORO (D17D)", "日本中TORO (D17DD)", "赤身A（日本） (D17G)", "急凍腦天 (D17DE)", "吞拿魚酒盜（紅） (C31H)", "鮪魚腩碎(築地) (D79)", "日本仿拖羅油脂 (D79A)", "吞拿魚4A (D17C)", "印尼中拖羅 (D17E)", "鰹魚酒盜（黃） (C31G)"] },
         { cat: "刺身壽司用料（魚籽類）", items: ["山十三文魚籽大粒 (D19ER)", "大粒蟹籽 (D21)", "中粒蟹籽 (D21A)", "鱒魚籽（醬油漬） (D19EA)", "黑色飛魚籽 (D21AA)", "250g裝三文魚籽 (D19EK)", "明太子蓉 (D57A)", "希靈魚籽(黃色) (D51)", "日本芝士蟹籽 (D21D)", "希靈魚籽（獨立包裝） (D51B)", "鱘魚子醬5g (D21FC)", "鱘魚子醬10g (D21FA)", "鱘魚子醬30g (D21FB)", "三文魚籽醬油漬(大粒) (D19E)"] }, 
         { cat: "蒲燒鰻魚/鯖魚", items: ["蒲燒鰻魚 30尾 (D22J)", "蒲燒鰻魚 35尾 (D22L)", "蒲燒鰻魚 40尾 (D22)", "蒲燒鰻魚 45尾 (D22C)", "蒲燒鰻魚 50尾 (D22A)", "蒲燒鰻魚 60尾 (D22D)", "蒲燒鰻魚 80尾 (D22I)", "蒲燒鰻魚 100尾 (D22G)", "鰻魚粒 (D22H)", "原條海鰻(穴子) (D15B)", "開邊青魚100尾 (D42A)", "開邊青魚70尾 (D42AB)", "獨立開邊青魚 (D42AA)", "真空原條鰻魚 (D22E)", "鰻魚片8g (D22FA)", "鰻魚片10g (D22FB)", "鰻魚片16g (D22FC)"] },
@@ -144,7 +165,7 @@
         { cat: "肉類1", items: ["手羽明太子雞翼 (E03)", "手羽芝士豬肉雞翼 (E03A)", "生雞膝軟骨粒 (D88C)", "芝麻雞翼 (E03F)", "明太子雞翼（日本） (E03K)", "無激素雞扒 (M008C)", "日式炭燒雞扒 (E03JA)", "煙鴨胸 (D76A)", "巴西雞扒 (M008E)", "雞中翼 (M008D)", "華味鳥雞腎 (D88GA)", "華味鳥雞心肝 (D88GB)", "CP炸雞軟骨粒1kg (D88DA)", "鹽酥雞 (E11C)", "雞骨腸 (E02)"] },
         { cat: "肉類2", items: ["免治雞肉棒 (D88AD)", "開邊生雞翼串 (D88E)", "炭燒雞腿肉串（盒裝） (D88A)", "秘制五花腩串（碟裝） (D88FG)", "秘制雞皮串（碟裝） (D88FD)", "雞腿肉串（碟裝） (D88FE)", "雞軟骨串 (D88)", "生雞皮串（盒裝） (D88AB)", "生雞腎串(盒裝) (D88AC)", "秘制肥腸（碟裝） (D88FB)", "雞腎串（碟裝） (D88FF)", "羊肉串（碟裝） (D88FH)", "雞亦串（碟裝） (D88FC)"] },
         { cat: "肉類3", items: ["中國鵝肝 (D30)", "原隻紅酒鵝肝 (D30A)", "鵝肝片 (D30D)", "金磚鵝肝片（紅酒味） (D30E)", "一口牛肉粒 (M004)", "和牛漢堡扒 (H02AA)", "和牛腿肉片 (M003M)", "A4和牛肉眼扒 (M003LA)", "A4和牛肉眼（抄碼） (M003LAA)", "中國鴨肝 (D30B)", "美國肥牛片2K裝 (M003BD)", "巴西牛舌(直條) (M007)", "A4和牛西冷扒 (M003LB)", "A4和牛西冷（抄碼） (M003LBA)"] },
-        { cat: "肉類4", items: ["黑豚肉眼（日本） (M010)", "內蒙古法式羊扒 (M006B)", "一口豚肉 (M004B)", "杜洛克風乾火腿片 (D99)", "日式叉燒 (E06)", "日式芝士漢堡扒60g (H02A)", "豬軟骨 (E05)", "日式漢堡扒 (H02)", "煙肉片 (D76B)", "日式叉燒片 (E06A)", "豚肉片2K裝 (M010A)", "香芋地瓜丸 (C30C)", "炸魷魚圈 (D41C)"] },
+        { cat: "肉類4", items: ["黑豚肉眼（日本） (M010)", "內蒙古法式羊扒 (M006B)", "一口豚肉 (M004B)", "杜洛克風乾火腿片 (D99)", "日式原條叉燒 (E06)", "日式芝士漢堡扒60g (H02A)", "豬軟骨 (E05)", "日式漢堡扒 (H02)", "煙肉片 (D76B)", "日式叉燒片 (E06A)", "豚肉片2K裝 (M010A)", "香芋地瓜丸 (C30C)", "炸魷魚圈 (D41C)"] },
         { cat: "日式炸物1", items: ["20g吉列蝦(白糠) (D10E)", "25g吉列蝦（黃糠） (D10EAA)", "KS 芝士年糕 (D65)", "日本吉列蠔 (D64BA)", "日本炸年糕串 (D65C)", "中國吉列蠔 (D64B)", "一口炸芝士 (D65AA)", "包裝吉列豬扒130g (E04EA)", "吉列魚柳 (D61F)", "原箱吉列豬扒130g (E04C)", "日式煎菜肉餃子 (E08)", "黑毛豬炸肉餅 (H03B)", "熔岩海膽魚餅 (D01A)", "炸池魚仔 (D62A)", "無頭甜蝦L50 (D10KC)"] },
         { cat: "日式炸物2", items: ["吉列牛肉薯餅 (H01A)", "甘栗紫薯餅 (H01F)", "吉列南瓜薯餅 (H01E)", "蟹肉忌廉薯餅 (H01)", "芝士薯餅 (H01G)", "雞皮餃子 (E08AA)", "冷凍面包糠 (C60A)", "炸蟹鉗 (D60F)", "拉絲芝士碎 (D65B)", "日式章魚燒50粒 (E09A)", "日式炸雞塊 (E11)", "天婦羅魷魚500g (D39GA)", "車打芝士片12片 (D65BB)", "雙色芝士碎 (D65BA)"] },
         { cat: "日式甜品/飲料", items: ["忌廉泡芙 (C29C)", "紅豆和果子 (C30B)", "朱古力泡芙 (C29)", "芝士蛋糕 (C47C)", "獺祭三割九分純米大吟醸 (W004)", "京姬匠純米大吟醸 (W005)", "大嶺三粒米山田錦 (W003A)", "ORION沖繩支裝生啤 (W017A)", "富士山威士忌 (W019)", "木村富士山柚子梳打 (G04F)", "波子汽水(白檸) (G03D)", "木村蜜瓜味汽水 (G04A)", "木村水蜜桃味汽水 (G04B)", "菠蘿波子汽水 (G03E)", "木村蘋果味汽水 (G04)", "Sangaria氣水 橙味 (G01AA)", "Sangaria氣水 原味 (G01BA)", "Sangaria氣水 蜜瓜味 (G01CA)", "Sangaria氣水 提子味 (G01DA)", "日本番薯 (C05A)"] },
@@ -202,10 +223,9 @@
         const c=document.getElementById('tab-frequent');
         let h='';
         
-        // V7.4 FIX: Filter out unknown products automatically
         frequentCodes.forEach(code=>{
             const p=productMap[code];
-            if(p) { // Only render if product exists
+            if(p) { // Filter unknown
                 h+=createProductRow(p.fullName);
             }
         });
@@ -216,7 +236,7 @@
                 h += `<div class="freq-divider">👇 最近新增產品 👇</div>`;
                 uniqueLearned.forEach(code=>{
                     const p=productMap[code];
-                    if(p) { // Only render if product exists
+                    if(p) { 
                         h+=createProductRow(p.fullName);
                     }
                 });
@@ -255,12 +275,10 @@
             const leftBtn = document.getElementById('btn-unit-left');
             const rightBtn = document.getElementById('btn-unit-right');
 
-            // Reset classes
             leftBtn.className = 'btn-unit-select';
             rightBtn.className = 'btn-unit-select';
 
             if (c === 'B01') {
-                // B01 Logic: KG is Default (Left)
                 leftBtn.classList.add('kg');
                 leftBtn.innerHTML = '<i class="bi bi-speedometer2"></i> KG<br>(默認)';
                 leftBtn.onclick = function() { confirmUnit('kg'); };
@@ -269,7 +287,6 @@
                 rightBtn.innerHTML = '<i class="bi bi-box-seam"></i> 隻';
                 rightBtn.onclick = function() { confirmUnit('piece'); };
             } else {
-                // Standard Logic: Piece is Default (Left)
                 leftBtn.classList.add('piece');
                 leftBtn.innerHTML = '<i class="bi bi-box-seam"></i> 件 / 包<br>(默認)';
                 leftBtn.onclick = function() { confirmUnit('piece'); };
@@ -312,10 +329,10 @@
         let h=''; for(let k in cart){const p=productMap[k];h+=createProductRow(p?p.fullName:`${k} (未知)`);} c.innerHTML=h;
     }
     
-    function sendWhatsApp(){
+    // V8.0 雙軌發送邏輯
+    function sendWhatsApp(mode){
         if(Object.keys(cart).length===0){alert("請先選擇產品！");return}
         
-        // V7.4: Date logic (11:00 cutoff)
         const dateStr = getDeliveryDate();
         let msg=`${customerCode} ${customerName}\n日期：${dateStr}\n訂貨單：\n\n`;
         const fmt=c=>{const p=productMap[c];const n=p?p.name:c;let q=cart[c].toString();if(cartUnits[c]==='kg')q+='K';return ` ${q.padEnd(5,' ')} ${n} (${c})\n`};
@@ -334,8 +351,12 @@
             renderFrequent(); 
         }
 
-        // V7.4: Group Send Link
-        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`,'_blank');
+        // 根據模式選擇發送對象
+        if (mode === 'direct') {
+            window.open(`https://api.whatsapp.com/send?phone=${salesPhone}&text=${encodeURIComponent(msg)}`,'_blank');
+        } else {
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`,'_blank');
+        }
         
         setTimeout(() => {
             cart = {}; cartUnits = {};
