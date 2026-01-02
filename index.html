@@ -20,15 +20,18 @@
         .search-wrapper { position: relative; }
         .search-input { border-radius: 20px; border: 1px solid #ccc; padding: 8px 35px 8px 15px; width: 100%; }
         .btn-clear-search { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #adb5bd; cursor: pointer; font-size: 1.1rem; display: none; z-index: 10; }
-        .btn-clear-search:active { color: #495057; }
         .cat-header { background-color: #ffc107; color: #000; font-weight: 800; padding: 8px 15px; margin-top: 0; font-size: 1.1rem; border-bottom: 1px solid #e0a800; }
         .product-row { background: white; border-bottom: 1px solid #eee; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; }
+        .product-row.oos { background-color: #f8f9fa; opacity: 0.8; }
         .p-info { flex: 1; padding-right: 10px; overflow: hidden; }
         .p-name { font-size: 1.1rem; font-weight: 700; color: #000; line-height: 1.3; margin-bottom: 2px; }
         .p-code { font-size: 0.85rem; color: #888; font-weight: normal; font-family: Arial, sans-serif; }
+        .oos-badge { font-size: 0.8rem; background-color: #dc3545; color: white; padding: 2px 6px; border-radius: 4px; margin-left: 5px; vertical-align: middle; }
         .qty-control { display: flex; align-items: center; background: #fff; border: 1px solid #ced4da; border-radius: 8px; width: 120px; justify-content: space-between; height: 38px; flex-shrink: 0; overflow: hidden; }
+        .qty-control.disabled { background: #e9ecef; border-color: #dee2e6; }
         .qty-btn { width: 35px; height: 100%; border-radius: 0; background: #f8f9fa; color: #212529; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; font-size: 1.2rem; user-select: none; border: none; }
         .qty-btn:active { background: #ffc107; }
+        .qty-btn.disabled { color: #adb5bd; cursor: not-allowed; background: #e9ecef; }
         .qty-input { width: 50px; text-align: center; border: none; font-weight: bold; font-size: 1.1rem; color: #333; background: transparent; padding: 0; }
         .qty-input.unit-kg { color: #d63384; font-size: 1rem; }
         .product-row.selected { background-color: #fff9db; border-left: 5px solid #ffc107; }
@@ -47,7 +50,9 @@
         .btn-unit-select:hover { background-color: #f8f9fa; }
         .btn-unit-select.piece { border-color: #212529; color: #212529; }
         .btn-unit-select.kg { border-color: #d63384; color: #d63384; }
-        .btn-unit-select i { display: block; font-size: 1.5rem; margin-bottom: 5px; }
+        .freq-divider { text-align: center; margin: 20px 0; font-size: 0.85rem; color: #aaa; position: relative; }
+        .freq-divider:before { content: ""; position: absolute; top: 50%; left: 15%; width: 25%; height: 1px; background: #ddd; }
+        .freq-divider:after { content: ""; position: absolute; top: 50%; right: 15%; width: 25%; height: 1px; background: #ddd; }
     </style>
 </head>
 <body>
@@ -81,8 +86,8 @@
             <div class="modal-body">
                 <p class="text-center mb-3">此產品支持稱重計價，請確認單位：</p>
                 <div class="unit-btn-group">
-                    <button id="btn-unit-piece" class="btn-unit-select piece" onclick="confirmUnit('piece')"><i class="bi bi-box-seam"></i> 件 / 包<br>(默認)</button>
-                    <button class="btn-unit-select kg" onclick="confirmUnit('kg')"><i class="bi bi-speedometer2"></i> KG<br>(公斤)</button>
+                    <button id="btn-unit-left" class="btn-unit-select"><i class="bi bi-box-seam"></i> 左按鈕</button>
+                    <button id="btn-unit-right" class="btn-unit-select"><i class="bi bi-speedometer2"></i> 右按鈕</button>
                 </div>
             </div>
         </div>
@@ -103,8 +108,19 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    const customerName = "九丁目"; const customerCode = "A2824"; 
+    // V7.3 標準版 - 九丁目
+    const customerName = "九丁目"; const customerCode = "A2824";
+    const storageKey = "kyuuchoume_v7";
+    
+    // 1. 鐵底清單
     const frequentCodes = ["C01", "D21", "D46AA", "C27A", "D10KC", "B01", "C28B", "D47", "D17D", "D03A", "D59EA", "D10", "C04", "D09HA", "D04B"];
+    
+    // 2. 缺貨清單
+    const outOfStockCodes = ["C58AC","D58C","D10F","D10D","D09M","D09G"];
+
+    // 3. 記憶清單
+    let learnedFrequent = [];
+
     const eelProducts = ["D22J", "D22L", "D22", "D22C", "D22A", "D22D", "D22I", "D22G"];
     const weightedProducts = ["D61B", "D61C", "D18A", "D17E", "D17C", "B01", "D18"];
     const fullCatalog = [
@@ -113,7 +129,7 @@
         { cat: "鮮活海產類", items: ["活赤貝 (B01)", "油甘魚 (B50B)", "三文魚 (B14)", "鮮三文魚柳 (B14H)"] },
         { cat: "日本鮮貨", items: ["鮮大拖羅腹1（赤身附） (B67A)", "鮮大拖羅腹2（赤身附） (B67B)", "鮮吞拿魚赤身（去血合） (B67C)", "間八 (B04)", "細池魚 (B55A)", "金目鯛 (B74C)", "蜜柑鯛 (B20E)", "真鯛 (B20G)", "鯖魚 (B73)", "平目 (B74G)", "魴鮄 (B55D)", "活北寄貝 (B09)", "鮮帶子肉(生食用) (B13)", "令和之怪物 (B08SB)", "太刀魚 (B55E)", "伊左木 (B74F)", "活粒貝 (B02E)", "即食生蠔300g (B08TB)"] },
         { cat: "新鮮蔬菜/裝飾花葉", items: ["大葉 (C01)", "綠楓葉 (C01FA)", "紅楓葉 (C01FB)", "日本小菊（黃） (C01CA)", "青椒仔 (C01CJ)", "萬能蔥 (C01CH)", "迷你食用玫瑰 (C01CO)", "南瓜 (C05)", "竹葉 (C04)", "三支葉 (C01F)", "花穗紫蘇 (C01CB)", "水菜 (C01CK)", "立桂 (C01CG)", "紅椒絲 (C01D)", "日本番薯 (C05A)"] },
-        { cat: "刺身壽司用料（蝦類）", items: ["ATC 加拿大牡丹蝦 L (D04A)", "ATC 加拿大牡丹蝦 XL (D04B)", "ATC 加拿大牡丹蝦 J (D04C)", "ATC 加拿大牡丹蝦 XJ (D04D)", "阿根廷赤蝦 L1 (D10JA)", "阿根廷赤蝦 L2 (D10JAA)", "俄羅斯牡丹J (D03EB)", "牡丹蝦L(黑盒) (D03A)", "原隻有頭甜蝦 LA (D10F)", "原隻有頭甜蝦 2L (D10)", "原隻有頭甜蝦 3L (D10A)", "原隻有頭甜蝦 4L (D10D)", "天使蝦 (D10M)", "海赤蝦8L (D10JE)", "海赤蝦9L (D10JD)", "無頭甜蝦M50 (D10K)", "無頭甜蝦L50 (D10KC)", "壽司熟蝦 3L (D03DD)", "壽司熟蝦 4L (D03DC)", "虎蝦刺身8g (D10N)", "虎蝦刺身10g (D10NA)", "海膽蝦2L (D03G)", "壽司玻璃蝦3L (D03CA)", "壽司熟蝦 7L (D03DA)", "壽司熟蝦 8L (D03D)", "天婦羅蝦5L (D10ED)"] },
+        { cat: "刺身壽司用料（蝦類）", items: ["牡丹蝦L(黑盒) (D03A)", "牡丹蝦XL(黑盒) (D03)", "牡丹蝦J(黑盒) (D03B)", "ATC牡丹蝦XJ (D04D)", "阿根廷赤蝦 L1 (D10JA)", "阿根廷赤蝦 L2 (D10JAA)", "原隻有頭甜蝦 LA (D10F)", "原隻有頭甜蝦 2L (D10)", "原隻有頭甜蝦 3L (D10A)", "原隻有頭甜蝦 4L (D10D)", "天使蝦 (D10M)", "海赤蝦8L (D10JE)", "海赤蝦9L (D10JD)", "無頭甜蝦M50 (D10K)", "無頭甜蝦L50 (D10KC)", "壽司熟蝦 3L (D03DD)", "壽司熟蝦 4L (D03DC)", "虎蝦刺身8g (D10N)", "虎蝦刺身10g (D10NA)", "海膽蝦2L (D03G)", "壽司玻璃蝦3L (D03CA)", "壽司熟蝦 7L (D03DA)", "壽司熟蝦 8L (D03D)", "天婦羅蝦5L (D10ED)", "25g吉列蝦（黃糠） (D10EAA)"] },
         { cat: "刺身壽司用料（帶子及貝殼類）", items: ["日本刺身帶子 5S (D09GA)", "日本刺身帶子 4S (D09D)", "日本刺身帶子 3S (D09B)", "日本刺身帶子 2S (D09F)", "日本刺身帶子 S (D09A)", "日本刺身帶子 M (D09)", "日本刺身帶子 L (D09C)", "日本刺身帶子 2L (D09M)", "日本刺身帶子 3L (D09G)", "刺身帶子S 500g (D09AB)", "調味扇貝切片8g (D09LA)", "北寄貝L (D47A)", "北寄貝M (D47)", "北寄貝片 (D47B)", "馬刀貝6g (D07)", "馬刀貝10g (D07A)", "赤貝肉21/25 (D48A)", "赤貝肉16/20 (D48B)", "赤貝片7g (D48E)", "赤貝片8g (D48G)", "刺身海螺片(馬刀貝25g) (D07F)", "刺身赤螺片 (D07BA)", "榮螺片 (D07B)", "象拔蚌片 (D44B)", "冰山蚌片刺身 (D44D)"] },
         { cat: "刺身壽司用料（魚類）", items: ["急凍油甘魚柳（半邊） (D69)", "螢光魷魚沖漬 (D41AB)", "油甘魚鮫 (D69B)", "凍熟螢光魷魚 (D41F)", "日本紋甲魷魚500g (D39B)", "1K紋甲魷魚 (D39BA)", "壽司墨魚片(8g) (D39)", "刺身池魚片 (D62)", "八爪魚切粒 (D05F)", "中國大八爪 (D05C)", "日本大八爪AAA (D05)", "八爪魚片 (D05B)", "A級八爪魚片 (D05BA)", "左口魚邊刺身1K (D58A)", "左口魚邊刺身20片 (D58)", "特級左口魚邊刺身 (D58C)", "左口魚邊刺身（中國） (D58B)", "臺灣鯛魚柳 (D61C)", "醋青魚柳 (D42)", "安康魚肝 (D31A)", "中國鯛魚柳 (D61B)", "冰頭漬 (D83)", "針魚片 (D25)", "大劍魚腩(有皮) (D18)", "細劍魚腩(有皮) (D18A)", "日本紋甲500g (D39B)", "日本紋甲1kg (D39BA)"] }, 
         { cat: "刺身壽司用料（吞拿魚/TORO）", items: ["日本大TORO (D17D)", "日本中TORO (D17DD)", "赤身A（日本） (D17G)", "急凍腦天 (D17DE)", "吞拿魚酒盜（紅） (C31H)", "鮪魚腩碎(築地) (D79)", "日本仿拖羅油脂 (D79A)", "吞拿魚4A (D17C)", "印尼中拖羅 (D17E)", "鰹魚酒盜（黃） (C31G)"] },
@@ -123,12 +139,12 @@
         { cat: "軍艦和日式小食", items: ["中華沙律2kg (D52)", "芝麻八爪仔2kg (D50)", "螺肉2kg (D53)", "帶子裙邊2kg (D54)", "芥辣熟八爪魚 (D50A)", "明太子沙律(中國) (D57)", "黃金魷魚 (D49)", "中華沙律400g (D52A)", "味付螺肉400g (D53A)", "芝麻八爪魚400g (D50AA)", "帶子裙邊400g (D54A)", "味附墨魚仔 (D53B)", "芥辣生八爪魚 (D50B)", "龍蝦沙律 (D55)", "櫻花魷魚 (D49B)", "海膽魷魚（日本） (D49C)", "芥辣生八爪100g (D50BB)", "北寄貝沙律 (D56)", "凍柚子皮 (C31F)", "急凍枝豆 (D84)", "燒雪魚棒 (C54)", "味淋魚乾 (C35A)", "紅魚鬆粉 (C67)", "十勝紅豆 (C30E)", "美國LIGO粟米粒 (D96B)", "迷你燒甜薯 (C30)"] },
         { cat: "急凍海產類--1", items: ["熟帆立貝M (D09HC)", "熟帆立貝L (D09HA)", "熟帆立貝2L (D09H)", "熟帆立貝5S (D09HB)", "半殼元貝8-10cm (D43)", "扇貝柱IQ (熟食) (D02B)", "加拿大翡翠螺 (D29)", "帶殼即食蜆 (D97)", "急凍東風螺 (D07G)", "廣島蠔2L (D64)", "廣島蠔3L (D64AE)", "半殼青口M (F03)", "智利藍青口40/70 (F03B)", "日式磯煮鮑魚 (D74A)", "滋味鮑魚肉200g (D74C)"] },
         { cat: "急凍海產類--2", items: ["原隻魷魚桶26/30 (D39D)", "原隻魷魚桶(獨立) (D39DA)", "阿根廷魷魚一夜干 (D39HA)", "銀鱈魚5-7磅 (D26)", "韓國半殼蠔 (F01DB)", "急凍殼付生蠔(刺身級) (F01GB)", "原味無骨魚塊 (D61HC)", "日本魷魚一夜干(2隻裝) (D39H)", "煙三文魚500g (D80A)", "煙三文魚100g (D80AA)", "急凍三文魚柳 (D80C)"] },
-        { cat: "急凍海產類--3", items: ["多春魚 (D21BA)", "生龍蝦尾 (D71)", "有頭虎蝦 4/6 (D03LEB)", "有頭虎蝦 6/8 (D03LEA)", "有頭虎蝦 8/10 (D03LE)", "有頭虎蝦 13/15 (D03LC)", "有頭虎蝦 16/20 (D03LCA)", "原隻熟蝦 (D03MB)", "天婦羅蝦5L (D10ED)", "急凍熟波斯頓龍蝦 (D70)", "蝦仁磚21/25 (D03LJ)", "蝦仁磚70/90 (D03LK)", "無頭虎蝦16/20 (D03LB)"] },
+        { cat: "急凍海產類--3", items: ["多春魚 (D21BA)", "生龍蝦尾 (D71)", "有頭虎蝦 4/6 (D03LEB)", "有頭虎蝦 6/8 (D03LEA)", "有頭虎蝦 8/10 (D03LE)", "有頭虎蝦 13/15 (D03LC)", "有頭虎蝦 16/20 (D03LCA)", "原隻熟蝦 (D03MB)", "天婦羅蝦5L (D10ED)", "急凍熟波斯頓龍蝦 (D70)", "蝦仁磚21/25 (D03LJ)", "蝦仁磚70/90 (D03LK)", "無頭虎蝦16/20 (D03LB)", "海赤蝦9L (D10JD)"] },
         { cat: "急凍海產類--4", items: ["熟帝皇蟹腳4L (D72CA)", "生帝皇蟹腳4L (D72C)", "竹田螃蟹醬 (C58)", "越河蟹肉味噌 (C58AB)", "越河蟹蓋 (C58AC)", "松葉蟹肉碎 (D59D)", "軟殼蟹(少冰，約8隻) (D12)", "龍蝦味噌 (C58A)", "混合鱈蟹肉500g (D59H)", "軟殼蟹(少冰，約9隻) (D12A)", "二本爪M (D60G)", "二本爪L (D60H)", "熟蟹拐棒500g (D72EC)", "熟雪蟹棒肉L (D72ED)", "罐頭蟹肉CLAW (D59EA)"] },
         { cat: "肉類1", items: ["手羽明太子雞翼 (E03)", "手羽芝士豬肉雞翼 (E03A)", "生雞膝軟骨粒 (D88C)", "芝麻雞翼 (E03F)", "明太子雞翼（日本） (E03K)", "無激素雞扒 (M008C)", "日式炭燒雞扒 (E03JA)", "煙鴨胸 (D76A)", "巴西雞扒 (M008E)", "雞中翼 (M008D)", "華味鳥雞腎 (D88GA)", "華味鳥雞心肝 (D88GB)", "CP炸雞軟骨粒1kg (D88DA)", "鹽酥雞 (E11C)", "雞骨腸 (E02)"] },
         { cat: "肉類2", items: ["免治雞肉棒 (D88AD)", "開邊生雞翼串 (D88E)", "炭燒雞腿肉串（盒裝） (D88A)", "秘制五花腩串（碟裝） (D88FG)", "秘制雞皮串（碟裝） (D88FD)", "雞腿肉串（碟裝） (D88FE)", "雞軟骨串 (D88)", "生雞皮串（盒裝） (D88AB)", "生雞腎串(盒裝) (D88AC)", "秘制肥腸（碟裝） (D88FB)", "雞腎串（碟裝） (D88FF)", "羊肉串（碟裝） (D88FH)", "雞亦串（碟裝） (D88FC)"] },
         { cat: "肉類3", items: ["中國鵝肝 (D30)", "原隻紅酒鵝肝 (D30A)", "鵝肝片 (D30D)", "金磚鵝肝片（紅酒味） (D30E)", "一口牛肉粒 (M004)", "和牛漢堡扒 (H02AA)", "和牛腿肉片 (M003M)", "A4和牛肉眼扒 (M003LA)", "A4和牛肉眼（抄碼） (M003LAA)", "中國鴨肝 (D30B)", "美國肥牛片2K裝 (M003BD)", "巴西牛舌(直條) (M007)", "A4和牛西冷扒 (M003LB)", "A4和牛西冷（抄碼） (M003LBA)"] },
-        { cat: "肉類4", items: ["黑豚肉眼（日本） (M006B)", "內蒙古法式羊扒 (M010)", "一口豚肉 (M004B)", "杜洛克風乾火腿片 (D99)", "日式叉燒 (E06)", "日式芝士漢堡扒60g (H02A)", "豬軟骨 (E05)", "日式漢堡扒 (H02)", "煙肉片 (D76B)", "日式叉燒片 (E06A)", "豚肉片2K裝 (M010A)", "雞骨腸 (E02)", "香芋地瓜丸 (C30C)", "炸魷魚圈 (D41C)", "日式叉燒片 (E06A)"] },
+        { cat: "肉類4", items: ["黑豚肉眼（日本） (M010)", "內蒙古法式羊扒 (M006B)", "一口豚肉 (M004B)", "杜洛克風乾火腿片 (D99)", "日式叉燒 (E06)", "日式芝士漢堡扒60g (H02A)", "豬軟骨 (E05)", "日式漢堡扒 (H02)", "煙肉片 (D76B)", "日式叉燒片 (E06A)", "豚肉片2K裝 (M010A)", "雞骨腸 (E02)", "香芋地瓜丸 (C30C)", "炸魷魚圈 (D41C)", "日式叉燒片 (E06A)"] },
         { cat: "日式炸物1", items: ["20g吉列蝦(白糠) (D10E)", "25g吉列蝦（黃糠） (D10EAA)", "KS 芝士年糕 (D65)", "日本吉列蠔 (D64BA)", "日本炸年糕串 (D65C)", "中國吉列蠔 (D64B)", "一口炸芝士 (D65AA)", "包裝吉列豬扒130g (E04EA)", "吉列魚柳 (D61F)", "原箱吉列豬扒130g (E04C)", "日式煎菜肉餃子 (E08)", "黑毛豬炸肉餅 (H03B)", "熔岩海膽魚餅 (D01A)", "炸池魚仔 (D62A)", "無頭甜蝦L50 (D10KC)"] },
         { cat: "日式炸物2", items: ["吉列牛肉薯餅 (H01A)", "甘栗紫薯餅 (H01F)", "吉列南瓜薯餅 (H01E)", "蟹肉忌廉薯餅 (H01)", "芝士薯餅 (H01G)", "雞皮餃子 (E08AA)", "冷凍面包糠 (C60A)", "炸蟹鉗 (D60F)", "拉絲芝士碎 (D65B)", "日式章魚燒50粒 (E09A)", "日式炸雞塊 (E11)", "天婦羅魷魚500g (D39GA)", "車打芝士片12片 (D65BB)", "雙色芝士碎 (D65BA)"] },
         { cat: "日式甜品/飲料", items: ["忌廉泡芙 (C29C)", "紅豆和果子 (C30B)", "朱古力泡芙 (C29)", "芝士蛋糕 (C47C)", "獺祭三割九分純米大吟醸 (W004)", "京姬匠純米大吟醸 (W005)", "大嶺三粒米山田錦 (W003A)", "ORION沖繩支裝生啤 (W017A)", "富士山威士忌 (W019)", "木村富士山柚子梳打 (G04F)", "波子汽水(白檸) (G03D)", "木村蜜瓜味汽水 (G04A)", "木村水蜜桃味汽水 (G04B)", "菠蘿波子汽水 (G03E)", "木村蘋果味汽水 (G04)", "Sangaria氣水 橙味 (G01AA)", "Sangaria氣水 原味 (G01BA)", "Sangaria氣水 蜜瓜味 (G01CA)", "Sangaria氣水 提子味 (G01DA)", "日本番薯 (C05A)"] },
@@ -141,9 +157,36 @@
     function init() {
         productMap = {}; 
         fullCatalog.forEach(c=>{c.items.forEach(i=>{const m=i.match(/^(.*)\s*\(([A-Za-z0-9]+)\)$/);if(m)productMap[m[2]]={fullName:i,name:m[1],code:m[2]}})});
+        
+        const savedFreq = localStorage.getItem(storageKey + '_learned');
+        if(savedFreq) {
+            try { 
+                learnedFrequent = JSON.parse(savedFreq); 
+            } catch(e) {}
+        }
+
         loadCart(); renderFrequent(); renderAll();
         cartModal=new bootstrap.Modal(document.getElementById('cartModal')); unitModal=new bootstrap.Modal(document.getElementById('unitSelectionModal'));
     }
+    
+    function getDeliveryDate() {
+        const now = new Date();
+        const hour = now.getHours();
+        let targetDate = new Date(now);
+        
+        if (hour >= 11) {
+            targetDate.setDate(targetDate.getDate() + 1);
+        }
+        
+        const y = targetDate.getFullYear();
+        const m = String(targetDate.getMonth() + 1).padStart(2, '0');
+        const d = String(targetDate.getDate()).padStart(2, '0');
+        const weekdays = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
+        const w = weekdays[targetDate.getDay()];
+        
+        return `${y}-${m}-${d} (${w})`;
+    }
+
     function loadCart() {
         const c=localStorage.getItem('orderCart_'+customerCode), u=localStorage.getItem('orderUnits_'+customerCode);
         if(c)try{cart=JSON.parse(c)}catch(e){} if(u)try{cartUnits=JSON.parse(u)}catch(e){}
@@ -154,17 +197,49 @@
         localStorage.setItem('orderUnits_'+customerCode, JSON.stringify(cartUnits));
     }
     function switchTab(t){document.querySelectorAll('.tab-content').forEach(e=>e.classList.remove('active'));document.querySelectorAll('.nav-link').forEach(e=>e.classList.remove('active'));document.getElementById('tab-'+t).classList.add('active');event.target.classList.add('active');if(t==='all'){clearSearch();document.getElementById('searchBar').style.display='block';window.scrollTo(0,0)}else{document.getElementById('searchBar').style.display='none'}}
-    function renderFrequent(){const c=document.getElementById('tab-frequent');let h='';frequentCodes.forEach(code=>{const p=productMap[code];h+=p?createProductRow(p.fullName):createProductRow(code+' (未知)')});c.innerHTML=h}
+    
+    function renderFrequent(){
+        const c=document.getElementById('tab-frequent');
+        let h='';
+        
+        frequentCodes.forEach(code=>{
+            const p=productMap[code];
+            h+=p?createProductRow(p.fullName):createProductRow(code+' (未知)');
+        });
+        
+        if (learnedFrequent.length > 0) {
+            let uniqueLearned = learnedFrequent.filter(code => !frequentCodes.includes(code)); 
+            if (uniqueLearned.length > 0) {
+                h += `<div class="freq-divider">👇 最近新增產品 👇</div>`;
+                uniqueLearned.forEach(code=>{
+                    const p=productMap[code];
+                    h+=p?createProductRow(p.fullName):createProductRow(code+' (未知)');
+                });
+            }
+        }
+        c.innerHTML=h;
+    }
+    
     function renderAll(f=''){const c=document.getElementById('tab-all');let h='';const t=f.toUpperCase().split('');fullCatalog.forEach(cat=>{const items=cat.items.filter(i=>{if(!f)return true;const u=i.toUpperCase();return t.every(x=>u.includes(x))});if(items.length>0){if(!f)h+=`<div class="cat-header">${cat.cat}</div>`;items.forEach(i=>h+=createProductRow(i))}});if(h==='')h='<div class="text-center p-5 text-muted">找不到相關產品</div>';c.innerHTML=h}
+    
     function createProductRow(s){
         let n=s,c='UNKNOWN';const m=s.match(/^(.*)\s*\(([A-Za-z0-9]+)\)$/);if(m){n=m[1];c=m[2]}else{c=s.replace(/[^a-zA-Z0-9]/g,'')}
+        
+        if (outOfStockCodes.includes(c)) {
+            return `<div class="product-row oos" id="row-${c}"><div class="p-info"><div class="p-name">${n} <span class="oos-badge">🚫 缺貨</span></div><div class="p-code">${c}</div></div><div class="qty-control disabled"><div class="qty-btn disabled">-</div><input type="text" class="qty-input" value="0" readonly disabled><div class="qty-btn disabled">+</div></div></div>`;
+        }
+
         const q=cart[c]||0; let val=q, cls='qty-input'; if(q>0&&cartUnits[c]==='kg'){val+=' K';cls+=' unit-kg'}
         const sel=q>0?'selected':'';
         return `<div class="product-row ${sel}" id="row-${c}"><div class="p-info"><div class="p-name">${n}</div><div class="p-code">${c}</div></div><div class="qty-control"><div class="qty-btn" onclick="updateQty('${c}',-1)">-</div><input type="text" class="${cls}" id="qty-${c}" value="${val}" readonly><div class="qty-btn" onclick="updateQty('${c}',1)">+</div></div></div>`
     }
+    
     function filterAllProducts(){const v=document.getElementById('searchInput').value;document.getElementById('clearSearchBtn').style.display=v.length?'block':'none';renderAll(v)}
     function clearSearch(){document.getElementById('searchInput').value='';document.getElementById('clearSearchBtn').style.display='none';renderAll('')}
+    
     function updateQty(c,d){
+        if (outOfStockCodes.includes(c)) return;
+
         if(eelProducts.includes(c)){
             if(d>0&&(!cart[c]||cart[c]===0)){cart[c]=5;cartUnits[c]='kg'}else{if(!cart[c])cart[c]=0;cart[c]+=d*5}
             if(cart[c]<=0){delete cart[c];delete cartUnits[c]}
@@ -172,15 +247,41 @@
         }
         if(d>0&&(!cart[c]||cart[c]===0)&&weightedProducts.includes(c)&&!cartUnits[c]){
             pendingProductCode=c;
-            const btn=document.getElementById('btn-unit-piece');
-            btn.innerHTML=(c==='B01')?'<i class="bi bi-box-seam"></i> 隻<br>(默認)':'<i class="bi bi-box-seam"></i> 件 / 包<br>(默認)';
+            const leftBtn = document.getElementById('btn-unit-left');
+            const rightBtn = document.getElementById('btn-unit-right');
+
+            // Reset classes
+            leftBtn.className = 'btn-unit-select';
+            rightBtn.className = 'btn-unit-select';
+
+            if (c === 'B01') {
+                // B01 Logic: KG is Default (Left)
+                leftBtn.classList.add('kg');
+                leftBtn.innerHTML = '<i class="bi bi-speedometer2"></i> KG<br>(默認)';
+                leftBtn.onclick = function() { confirmUnit('kg'); };
+
+                rightBtn.classList.add('piece');
+                rightBtn.innerHTML = '<i class="bi bi-box-seam"></i> 隻';
+                rightBtn.onclick = function() { confirmUnit('piece'); };
+            } else {
+                // Standard Logic: Piece is Default (Left)
+                leftBtn.classList.add('piece');
+                leftBtn.innerHTML = '<i class="bi bi-box-seam"></i> 件 / 包<br>(默認)';
+                leftBtn.onclick = function() { confirmUnit('piece'); };
+
+                rightBtn.classList.add('kg');
+                rightBtn.innerHTML = '<i class="bi bi-speedometer2"></i> KG<br>(公斤)';
+                rightBtn.onclick = function() { confirmUnit('kg'); };
+            }
             unitModal.show(); return;
         }
         if(!cart[c])cart[c]=0; cart[c]+=d;
         if(cart[c]<=0){delete cart[c];delete cartUnits[c]}
         syncUI(c);
     }
+    
     function confirmUnit(u){if(pendingProductCode){cartUnits[pendingProductCode]=u;updateQty(pendingProductCode,1);unitModal.hide();pendingProductCode=null}}
+    
     function syncUI(c){
         const q=cart[c]||0, u=cartUnits[c];
         document.querySelectorAll(`#qty-${c}`).forEach(i=>{
@@ -191,7 +292,9 @@
         });
         calcTotal(); saveCart(); if(document.getElementById('cartModal').classList.contains('show'))renderCartModalItems();
     }
+    
     function clearCart(){if(Object.keys(cart).length===0)return;if(confirm("確定要清空所有已選貨品嗎？")){cart={};cartUnits={};localStorage.removeItem('orderCart_'+customerCode);localStorage.removeItem('orderUnits_'+customerCode);renderFrequent();renderAll();calcTotal();renderCartModalItems()}}
+    
     function calcTotal(){
         const count=Object.keys(cart).length; document.getElementById('totalQty').innerText=count;
         const b=document.getElementById('viewCartBtn');
@@ -203,16 +306,38 @@
         if(Object.keys(cart).length===0){c.innerHTML='<div class="text-center p-4 text-muted">尚未選擇任何產品</div>';return}
         let h=''; for(let k in cart){const p=productMap[k];h+=createProductRow(p?p.fullName:`${k} (未知)`);} c.innerHTML=h;
     }
+    
     function sendWhatsApp(){
         if(Object.keys(cart).length===0){alert("請先選擇產品！");return}
-        let msg=`${customerCode} ${customerName}\n訂貨單：\n\n`;
+        
+        const dateStr = getDeliveryDate();
+        let msg=`${customerCode} ${customerName}\n日期：${dateStr}\n訂貨單：\n\n`;
         const fmt=c=>{const p=productMap[c];const n=p?p.name:c;let q=cart[c].toString();if(cartUnits[c]==='kg')q+='K';return ` ${q.padEnd(5,' ')} ${n} (${c})\n`};
-        frequentCodes.forEach(c=>{if(cart[c])msg+=fmt(c)});
-        for(let c in cart){if(!frequentCodes.includes(c))msg+=fmt(c)}
-        window.open(`https://wa.me/85263771688?text=${encodeURIComponent(msg)}`,'_blank');
+        
+        let hasNewItems = false;
+        for(let c in cart){
+            if(!frequentCodes.includes(c) && !learnedFrequent.includes(c)){
+                learnedFrequent.push(c);
+                hasNewItems = true;
+            }
+            msg+=fmt(c); 
+        }
+        
+        if(hasNewItems){
+            localStorage.setItem(storageKey + '_learned', JSON.stringify(learnedFrequent));
+            renderFrequent(); 
+        }
+
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`,'_blank');
+        
+        setTimeout(() => {
+            cart = {}; cartUnits = {};
+            saveCart();
+            renderAll(); renderFrequent(); calcTotal();
+            if(document.getElementById('cartModal').classList.contains('show')) cartModal.hide();
+        }, 1000);
     }
     init();
 </script>
 </body>
 </html>
-
