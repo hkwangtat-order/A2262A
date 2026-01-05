@@ -197,12 +197,18 @@
         cartModal=new bootstrap.Modal(document.getElementById('cartModal')); unitModal=new bootstrap.Modal(document.getElementById('unitSelectionModal'));
     }
     
-    function getDeliveryDate() {
+  function getDeliveryDate() {
         const now = new Date();
         const hour = now.getHours();
         let targetDate = new Date(now);
         
+        // 1. 截單邏輯：如果超過 11:00，日期加 1 天
         if (hour >= 11) {
+            targetDate.setDate(targetDate.getDate() + 1);
+        }
+        
+        // 2. 週日休息邏輯：如果這天是週日 (0)，就自動再加 1 天變成週一
+        if (targetDate.getDay() === 0) {
             targetDate.setDate(targetDate.getDate() + 1);
         }
         
@@ -337,29 +343,46 @@
     }
     
     // V8.3 Dual Mode Send
+   // V9.6 Sorted Send Logic (顯示 K 和 隻)
     function sendWhatsApp(mode){
+        if(!customerName || !customerCode) { alert("請先設定客戶資料！"); openSetupModal(); return; }
         if(Object.keys(cart).length===0){alert("請先選擇產品！");return}
         
         const dateStr = getDeliveryDate();
         let msg=`${customerCode} ${customerName}\n日期：${dateStr}\n訂貨單：\n\n`;
-        const fmt=c=>{const p=productMap[c];const n=p?p.name:c;let q=cart[c].toString();if(cartUnits[c]==='kg')q+='K';return ` ${q.padEnd(5,' ')} ${n} (${c})\n`};
         
-                // --- V9.0 排序升級 (A-Z) ---
-        let codes = Object.keys(cart).sort(); // 這裡執行排序
+        // 👇 這裡就是修改了顯示單位的地方 👇
+        const fmt=c=>{
+            const p=productMap[c];
+            const n=p?p.name:c;
+            let q=cart[c].toString();
+            
+            // 如果單位是 kg，加 'K'
+            if(cartUnits[c]==='kg') {
+                q += 'K';
+            } 
+            // 如果單位是 piece (右邊按鈕)，加 '隻'
+            else if (cartUnits[c]==='piece') {
+                q += '隻';
+            }
+            
+            return ` ${q.padEnd(6,' ')} ${n} (${c})\n`
+        };
+        
+        // WhatsApp Sort: A-Z
+        let codes = Object.keys(cart).sort(); 
         
         let hasNewItems = false;
-        for(let c of codes){ // 這裡改用排序後的 codes
-            if(!frequentCodes.includes(c) && !learnedFrequent.includes(c)){
-                learnedFrequent.push(c);
-                hasNewItems = true;
-            }
-            msg+=fmt(c); 
+        for(let c of codes){
+            msg+=fmt(c);
+            // Frequency Tracking Logic
+            if(itemCounts[c]) itemCounts[c]++;
+            else itemCounts[c] = 1;
+            hasNewItems = true;
         }
-        // -------------------------
-
         
         if(hasNewItems){
-            localStorage.setItem(storageKey + '_learned', JSON.stringify(learnedFrequent));
+            localStorage.setItem(storageKey + '_stats', JSON.stringify(itemCounts));
             renderFrequent(); 
         }
 
@@ -380,3 +403,4 @@
 </script>
 </body>
 </html>
+
